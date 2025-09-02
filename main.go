@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"log"
 	"net/http"
@@ -8,8 +9,19 @@ import (
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/cors"
+	"github.com/jakeleesh/rssagg/internal/database"
 	"github.com/joho/godotenv"
+
+	// Underscore to say include this code in program even though not calling it directly
+	_ "github.com/lib/pq"
 )
+
+// Use Database in code
+// struct hold connection to database
+type apiConfig struct {
+	// Exposed by code generated using sqlc
+	DB *database.Queries
+}
 
 func main() {
 	// Environment doesn't exist in current shell session
@@ -21,6 +33,27 @@ func main() {
 	if portString == "" {
 		// log.Fatal will exit program immediately with Error Code 1 and message
 		log.Fatal("PORT is not found in the environment")
+	}
+
+	// Import database connection
+	dbURL := os.Getenv("DB_URL")
+	if dbURL == "" {
+		log.Fatal("DB_URL is not found in environment")
+	}
+
+	// Connect to database
+	// Go standard library has built-in SQL package
+	conn, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		log.Fatal("Can't connect to database:", err)
+	}
+
+	// New API Config
+	// Can pass into our handlers so that they have access to database
+	apiCfd := apiConfig{
+		// Takes in database.queries
+		// Have sql.db so need to convert into a connection
+		DB: database.New(conn),
 	}
 
 	// Spin up Server
@@ -56,6 +89,9 @@ func main() {
 	v1Router.Get("/healthz", handlerReadiness)
 	// Hook up error handler
 	v1Router.Get("/err", handlerErr)
+	// Hook up createUser Handler
+	// Be POST Request
+	v1Router.Post("/users", apiCfd.handlerCreateUser)
 
 	// Create v1Router is because going to mount
 	// Nesting v1Router under /v1 path
@@ -73,7 +109,7 @@ func main() {
 	// Returns an Error
 	// ListenAndServe will block, just stop and starts handling HTTP Requests
 	// Nothing SHOULD be returned, Server should run forever
-	err := srv.ListenAndServe()
+	err = srv.ListenAndServe()
 	// Anything goes wrong in process of handling requests, error returned
 	if err != nil {
 		// Log and exit program
