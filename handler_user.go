@@ -49,6 +49,15 @@ func (apiCfg *apiConfig) handlerCreateUser(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	// Rather than respond with database User, respond with our USer
+	// Rather than respond with database User, respond with our User
+	// 201 is the created code
+	respondWithJSON(w, 201, databaseUserToUser(user))
+}
+
+// New Handler for getting users
+// This is an authenticated endpoint
+// In order to create a user, don't need API key
+// But if want get user info, have to give API key
+func (apiCfg *apiConfig) handleGetUser(w http.ResponseWriter, r *http.Request, user database.User) {
 	respondWithJSON(w, 200, databaseUserToUser(user))
 }

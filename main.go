@@ -50,7 +50,7 @@ func main() {
 
 	// New API Config
 	// Can pass into our handlers so that they have access to database
-	apiCfd := apiConfig{
+	apiCfg := apiConfig{
 		// Takes in database.queries
 		// Have sql.db so need to convert into a connection
 		DB: database.New(conn),
@@ -91,7 +91,15 @@ func main() {
 	v1Router.Get("/err", handlerErr)
 	// Hook up createUser Handler
 	// Be POST Request
-	v1Router.Post("/users", apiCfd.handlerCreateUser)
+	v1Router.Post("/users", apiCfg.handlerCreateUser)
+	// Hook up GetUser Handler to GET HTTP method
+	// Same path, different method
+	// Call middlewareAuth to convert GetUser Handler into standard HTTP Handler
+	// Calling middlewareAuth to get authenticated user and then calling back the GetUser Handler
+	v1Router.Get("/users", apiCfg.middlewareAuth(apiCfg.handleGetUser))
+	// Creating a resouce, use POST
+	v1Router.Post("/feeds", apiCfg.middlewareAuth((apiCfg.handlerCreateFeed)))
+	v1Router.Get("/feeds", apiCfg.handlerGetFeeds)
 
 	// Create v1Router is because going to mount
 	// Nesting v1Router under /v1 path
