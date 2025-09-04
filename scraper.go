@@ -2,10 +2,13 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jakeleesh/rssagg/internal/database"
 )
 
@@ -87,9 +90,47 @@ func scrapeFeed(db *database.Queries, wg *sync.WaitGroup, feed database.Feed) {
 		return
 	}
 
-	// TODO: Instead of iterating over items and printing, saving into database
 	for _, item := range rssFeed.Channel.Item {
-		log.Println("Found post", item.Title, "on feed", feed.Name)
+		// NullString has string itself and whether it's valid
+		// If item description is blank, set the value to null in database
+		// Otherwise create valid description
+		description := sql.NullString{}
+		if item.Description != "" {
+			description.String = item.Description
+			description.Valid = true
+		}
+
+		// Need to parse
+		// RFC1123Z is layout
+		pubAt, err := time.Parse(time.RFC1123Z, item.PubDate)
+		if err != nil {
+			log.Printf("couldn't parse date %v with err %v", item.PubDate, err)
+			continue
+		}
+
+		// Don't care about new post
+		_, err = db.CreatePost(context.Background(), database.CreatePostParams{
+			ID:          uuid.New(),
+			CreatedAt:   time.Now().UTC(),
+			UpdatedAt:   time.Now().UTC(),
+			Title:       item.Title,
+			Description: description,
+			PublishedAt: pubAt,
+			Url:         item.Link,
+			FeedID:      feed.ID,
+		})
+		if err != nil {
+			// Scrapped feeds and pulled in posts
+			// "duplicate key violates unique constraints" makes sense, didn't want to store duplicate posts in database
+			// Try to recreate post, fails because already have posts in database
+			// String detection, don't log this, isn't an error, expected behavior
+			if strings.Contains(err.Error(), "duplicate key") {
+				continue
+			}
+			// Log error if not "duplicate key" error
+			log.Println("failed to create post", err)
+		}
 	}
+
 	log.Printf("Feed %s collected, %v posts found", feed.Name, len(rssFeed.Channel.Item))
 }
