@@ -97,9 +97,18 @@ func main() {
 	// Call middlewareAuth to convert GetUser Handler into standard HTTP Handler
 	// Calling middlewareAuth to get authenticated user and then calling back the GetUser Handler
 	v1Router.Get("/users", apiCfg.middlewareAuth(apiCfg.handleGetUser))
+
 	// Creating a resouce, use POST
 	v1Router.Post("/feeds", apiCfg.middlewareAuth((apiCfg.handlerCreateFeed)))
 	v1Router.Get("/feeds", apiCfg.handlerGetFeeds)
+
+	v1Router.Post("/feed_follows", apiCfg.middlewareAuth(apiCfg.handlerCreateFeedFollow))
+	v1Router.Get("/feed_follows", apiCfg.middlewareAuth(apiCfg.handlerGetFeedFollows))
+	// Authenticated
+	// Need feedFollowID and DELETE request
+	// HTTP DELETE request don't typically have body
+	// More conventional to pass ID in path
+	v1Router.Delete("/feed_follows/{feedFollowID}", apiCfg.middlewareAuth(apiCfg.handlerDeleteFeedFollow))
 
 	// Create v1Router is because going to mount
 	// Nesting v1Router under /v1 path
