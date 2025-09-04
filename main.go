@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/cors"
@@ -48,13 +49,20 @@ func main() {
 		log.Fatal("Can't connect to database:", err)
 	}
 
+	db := database.New(conn)
 	// New API Config
 	// Can pass into our handlers so that they have access to database
 	apiCfg := apiConfig{
 		// Takes in database.queries
 		// Have sql.db so need to convert into a connection
-		DB: database.New(conn),
+		DB: db,
 	}
+
+	// Hook up startScraping to main function
+	// Call before ListenAndServe() because server blocks and waits forever for incoming requests
+	// Call it on a new goroutine so doesn't interrupt main
+	// because startScraping is never going to return, it's long running functio, infinite for loop
+	go startScraping(db, 10, time.Minute)
 
 	// Spin up Server
 	// New Router Object
